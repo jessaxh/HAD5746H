@@ -1,0 +1,1225 @@
+---
+title: 'Regression modeling using Panel Data '
+author: "Eric Opoku, Husayn Jessa and  Guan Wang"
+date: March 3, 2022
+#output: pdf_document
+output: html_document
+fontsize: 12pt
+geometry: margin=1in
+subtitle: Using panel data in Regression Modelling
+---
+
+
+
+
+```{r setup, include=FALSE, comment=NA}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	fig.width = 8,
+	message = FALSE,
+	warning = FALSE,
+	collapse = TRUE
+)
+```
+
+
+```{r header, echo=TRUE, message=FALSE, warning=FALSE, comment=NA}
+
+
+#name<- Sys.info()
+#name[7]
+```
+
+
+This worksheet provides a series of assignments on the use of R to develop linear regression models with repeated cross section and panel data .
+
+
+Throughout the assignment, we will demonstrate code and leave some empty *code chunks* for you to fill in. We will also provide solutions after the end of the course.
+
+Feel free to modify this document with your own comments and clarifications. 
+
+
+# Assignment
+
+You are asked to complete a series of regression models that will uncover the effect of education on (log)  returns . We will use a dataset that comes with the book "Introductory Econometrics: A Modern Approach" by JM Wooldridge. The data come from two waves of the Current Population Survey (1978-1985). Below we load the data and store them in a variable named `wages`
+
+
+```{r message=FALSE, warning=FALSE, comment=NA}
+#install package "wooldridge" and the Panel Linear Model (plm) package
+#install.packages(c("wooldridge", "plm", "lme4", "table1"))
+
+library(dplyr)  #for data wrangling
+library(wooldridge)
+library(plm)
+library(lme4)
+library(table1)  #for table1 tables
+library(ggplot2)
+library(kableExtra)
+library(stargazer)  #sumary stats
+library(tidyverse) # load the installed package for each new session of R
+library(broom)
+library(modelsummary) # regression tables
+library(causaldata) # data sets
+library(here) # directories and projects
+library(plotly) # directories and projects
+library(panelView)
+library(plm)
+
+
+set.seed(03262020) # random number generators; same numbers across machines
+
+
+```
+
+
+
+
+```{r Data, message=FALSE, warning=FALSE, comment=NA}
+data('cps78_85')
+wages <- cps78_85
+```
+
+First examine the data and how they behave. Use histograms, the `summary` function and other plots and tabular forms of your choice to summarize the data. Note any limitations you observe. Repeat the process for both waves separately. 
+Hint: remember to use the plot functionality discussed in class
+
+Similarly can you create scatterplots to illustrate the relation between (log) wages and 1) education 2) gender and 3)work experience?
+
+\newpage
+#QUESTION ONE: Descriptive statistics
+\par
+
+The histogram for log of wages demonstrates that there is a normal distribution amongst the sample population. \par
+The histogram for education depicts a left skewed distribution which indicates most people have lots of years of education. \par
+The gender histogram shows the sample is made up of more men than women. \par
+The distribution for work experience shows that most people have between 0-20 years of experience. \par
+The histogram for work experience squared shows a high frequency for experencie squared between 0 and 250 and a large decrease in frequency after 250. \par
+The histogram for location demonstrates that most of the sample lives in the North and not the South. \par
+This histogram for Race demonstrates that most of the participants in the study are white. \par
+The histogram for Marriage demonstrates that there are more married than non-married participants in the sample \par
+The histogram for Union Membership demonstrates that most participants in the study are not a part of a union. \par
+The scatterplot for education and lwages demonstrates that there may be an association with greater education leading to greater wages.\par
+Work experience and Log of wages does not appear to have a strong relationship as the trend line in the scatterplot is almost horizontal and its slope does not show a clear positive trend. \par
+The scatter plot does not allow to assess a clear relationship between gender and log of wages. \par
+
+The histograms and scatterplots described are displayed below: \par
+\pagebreak
+
+```{r summary for total dataset}
+
+str(wages)
+head(wages)
+tail(wages)
+table(wages$lwage)
+
+#summary
+summary(wages)
+
+
+#histogram for lwages
+l_wage<-hist(wages$lwage, prob=T,
+main="Frequency distribution of Wages (log)",
+ylab="Frequency of Wages (log)",
+xlab="Wages (log)",
+col="grey")  
+
+
+
+#histogram for educ
+educ <-hist(wages$educ, prob=T,
+main="Frequency distribution of Educ",
+ylab="Frequency of Educ",
+xlab="Educ",
+col="grey") 
+
+
+#histogram for gender
+female <-hist(wages$female, prob=T,
+main="Frequency distribution of Men & Women",
+ylab="Frequency of The Gender",
+xlab="0=male, 1=female",
+col="grey") 
+
+
+
+#histogram for work experience
+exper <-hist(wages$exper, prob=T,
+main="Frequency distribution of Work Experience",
+ylab="Frequency of Work Experience",
+xlab="Exper",
+col="grey") 
+
+
+#histogram for work experience squared
+exper <-hist(wages$expersq, prob=T,
+main="Frequency distribution of Work Experience Squared",
+ylab="Frequency of Work Experience Squared",
+xlab="Expersq",
+col="grey") 
+
+#histogram for south
+l_wage<-hist(wages$south, prob=T,
+main="Frequency distribution of Location",
+ylab="Frequency of Location",
+xlab="0= North, 1 = South",
+col="grey")  
+
+#histogram for race
+l_wage<-hist(wages$nonwhite, prob=T,
+main="Frequency distribution of Race",
+ylab="Frequency of Race",
+xlab="0= white, 1 = nonwhite",
+col="grey")  
+
+#histogram for Marriage
+l_wage<-hist(wages$married, prob=T,
+main="Frequency distribution of Marriage",
+ylab="Frequency of Marriage",
+xlab="0= not_married, 1 = married",
+col="grey")  
+
+#histogram for union
+l_wage<-hist(wages$union, prob=T,
+main="Frequency distribution of Union Membership",
+ylab="Frequency of Union Membership",
+xlab="0= not in a union, 1 = in a union",
+col="grey")  
+
+#PLOTS
+ggplot(data=wages,aes(x=educ,y=lwage)) + geom_point( colour = 'red', alpha = 0.5) +
+theme_minimal() + labs(x="Education",y="Wages (log)") +
+geom_smooth(method='lm', formula= y~x)
+
+#the scatterplot for education and lwages demonstrates that there may be an association with greater education leading to greater wages.
+
+
+ggplot(data=wages,aes(x=exper,y=lwage)) + geom_point() +
+theme_minimal() + labs(x="Experience",y="Wages (log)") +
+geom_smooth(method='lm', formula= y~x) 
+
+#work experience and Log of wages does not appear to have a strong relationship as the trend line in the scatterplot is almost horizontal and its slope does not show a clear positive trend.
+
+
+ggplot(data=wages,aes(x=female,y=lwage)) + geom_point() +
+theme_minimal() + labs(x="Gender",y="Wages (log)") +
+geom_smooth(method='lm', formula= y~x) 
+#the scatter plot does not allow to assess a clear relationship between gender and log of wages.
+
+
+# Plotting output of (density)
+den.lwage <- density(wages$lwage)
+den.lwage
+plot(den.lwage, main = 'Density plot of wage (log)')
+
+ 
+
+```
+\pagebreak
+
+WAVE 1 SUMMARY STATISTICS
+
+This is a description of the histograms and plots created for the data wave of 1978. \par
+The histogram for log of wages in the first wave demonstrates a normal distribution.  \par
+The histogram for educ in the first wave (1978) demonstrates a similar trend to that seen when both waves were grouped - a left skewed distribution which indicates most people have lots of years of education. \par
+The gender histogram for the first waves shows the sample is made up of more men than women. \par
+The histogram for experience in the first wave demonstrates most people have zero to 20 years of work experience. \par 
+The histogram for work experience squared in the first wave shows a high frequency for experience squared between 0 and 250 and a large decrease in frequency after 250. \par
+The histogram for location in the first wave demonstrates that most of the sample lives in the North and not the South. \par
+This histogram for Race in the first wave demonstrates that most of the participants in the study are white. \par
+The histogram for Marriage in the first wave demonstrates that there are more married than non-married participants in the sample \par
+The histogram for Union Membership in the first wave demonstrates that most participants in the study are not a part of a union. \par
+The scatterplots for the relationship between education, experience and gender with log of wages depicts the same relationship that was observed when both waves were grouped together. Education and experience have positive effects on wages. The relationship between gender and log of wages is not clear cut. \par
+
+The histograms and scatterplots for the first wave wage data described as well as some additional histograms for other variables are displayed below: \par
+
+```{r summary for wave of 78, message=FALSE, warning=FALSE, comment=NA}
+# Selecting the first 550 Ids
+data_wave_78 <- wages[1:550, ]
+
+
+
+str(data_wave_78)
+head(data_wave_78)
+tail(data_wave_78)
+table(data_wave_78$lwage)
+
+#summary
+summary(data_wave_78)
+
+
+#histogram for lwages
+l_wage<-hist(data_wave_78$lwage, prob=T, #breaks=5, 
+main="Frequency distribution of Wages (log)",
+ylab="Frequency of Wages (log)",
+xlab="Wages (log)",
+col="grey")  
+#the histogram for log of wages in the first wave demonstrates a normal distribution.  
+
+
+
+#histogram for educ
+educ <-hist(data_wave_78$educ, prob=T,
+main="Frequency distribution of Educ",
+ylab="Frequency of Educ",
+xlab="Educ",
+col="grey") 
+
+#the histogram for educ in the first wave demonstrates a similar trend to that seen when both waves were grouped.  
+
+#histogram for gender
+female <-hist(data_wave_78$female, prob=T,
+main="Frequency distribution of Men & Women",
+ylab="Frequency of The Gender",
+xlab="0=male, 1=female",
+col="grey") 
+
+#The gender histogram for the first waves shows the sample is made up of more men than women.
+
+#histogram for work experience
+exper <-hist(data_wave_78$exper, prob=T,
+main="Frequency distribution of Work Experience",
+ylab="Frequency of Work Experience",
+xlab="Exper",
+col="grey") 
+
+#the histogram for experience in the first wave demonstrates most people have zero to 20 years of work experience.  
+
+#histogram for work experience squared
+exper <-hist(data_wave_78$expersq, prob=T,
+main="Frequency distribution of Work Experience Squared",
+ylab="Frequency of Work Experience Squared",
+xlab="Expersq",
+col="grey") 
+
+
+#histogram for south
+l_wage<-hist(data_wave_78$south, prob=T,
+main="Frequency distribution of Location",
+ylab="Frequency of Location",
+xlab="0= North, 1 = South",
+col="grey")  
+
+#histogram for race
+l_wage<-hist(data_wave_78$nonwhite, prob=T,
+main="Frequency distribution of Race",
+ylab="Frequency of Race",
+xlab="0= white, 1 = nonwhite",
+col="grey")  
+
+#histogram for Marriage
+l_wage<-hist(data_wave_78$married, prob=T,
+main="Frequency distribution of Marriage",
+ylab="Frequency of Marriage",
+xlab="0= not_married, 1 = married",
+col="grey")  
+
+#histogram for union
+l_wage<-hist(data_wave_78$union, prob=T,
+main="Frequency distribution of Union Membership",
+ylab="Frequency of Union Membership",
+xlab="0= not in a union, 1 = in a union",
+col="grey")  
+
+
+
+
+#PLOTS
+ggplot(data=data_wave_78,aes(x=educ,y=lwage)) + geom_point( colour = 'red', alpha = 0.5) +
+theme_minimal() + labs(x="Education",y="Wages (log)") +
+geom_smooth(method='lm', formula= y~x)
+
+
+ggplot(data=data_wave_78,aes(x=exper,y=lwage)) + geom_point() +
+theme_minimal() + labs(x="Exper",y="Wages (log)") +
+geom_smooth(method='lm', formula= y~x)
+
+
+ggplot(data=data_wave_78,aes(x=female,y=lwage)) + geom_point() +
+theme_minimal() + labs(x="Gender",y="Wages (log)") +
+geom_smooth(method='lm', formula= y~x) 
+
+#The scatterplots for the relationship between education, experience and gender with log of wages depicts the same relationship that was observed when both waves were grouped together. Education and experience have positive effects on wages. The relationship between gender and log of wages is not clear cut.
+
+
+# Plotting output of (density)
+den.lwage.78 <- density(data_wave_78$lwage)
+den.lwage.78
+plot(den.lwage.78, main = 'Density plot of wage (log)')
+
+ 
+
+```
+
+WAVE 2 SUMMARY STATISTICS
+
+This is a description of the histograms and plots created for the data wave of 1978. \par
+The histogram for lwages in the second wave demonstrates a similar distribution, normal, to that seen when both waves were grouped. \par
+The histogram for educ in the second wave demonstrates a similar trend to that seen when both waves were grouped - a left skewed distribution which indicates most people have lots of years of education. \par
+The gender histogram for the second waves shows the sample is made up of more men than women just like what was observed when both waves were grouped. \par
+The histogram for experience in the second wave demonstrates a similar trend to that seen when both waves were grouped - most people have zero to 20 years of work experience. \par
+The histogram for work experience squared in the second wave shows a high frequency for experience squared between 0 and 250 and a large decrease in frequency after 250. \par
+The histogram for location in the second wave demonstrates that most of the sample lives in the North and not the South. \par
+This histogram for Race in the second wave demonstrates that most of the participants in the study are white. \par
+The histogram for Marriage in the second wave demonstrates that there are more married than non-married participants in the sample \par
+The histogram for Union Membership in the second wave demonstrates that most participants in the study are not a part of a union. \par
+The scatterplots to show the relationship between education, experience and gender with log of wage depicts the same relationship that was observed when both waves were grouped together. Education and experience have positive effects on wages. The relationship between gender and log of wages is not clear cut \par
+
+The histograms and scatterplots for the second wave wage data described as well as some additional histograms are displayed below: \par
+
+```{r summary for wave of 85, message=FALSE, warning=FALSE, comment=NA}
+# Selecting the last remaining Ids
+data_wave_85 <- wages[551:1084, ]
+
+
+
+str(data_wave_85)
+head(data_wave_85)
+tail(data_wave_85)
+table(data_wave_85$lwage)
+
+#summary
+summary(data_wave_85)
+
+
+#histogram
+l_wage<-hist(data_wave_85$lwage, prob=T,
+main="Frequency distribution of Wages (log)",
+ylab="Frequency of Wages (log)",
+xlab="Wages (log)",
+col="grey")  
+
+#the histogram for lwages in the second wave demonstrates a similar distribution, normal, to that seen when both waves were grouped.  
+
+
+hist(data_wave_85$lwage, freq=F) #Density
+hist(data_wave_85$lwage, freq=T) #frequency
+
+
+#histogram for educ
+educ <-hist(data_wave_85$educ, prob=T,
+main="Frequency distribution of Educ",
+ylab="Frequency of Educ",
+xlab="Educ",
+col="grey") 
+
+#the histogram for educ in the second wave demonstrates a similar trend to that seen when both waves were grouped.  
+
+#histogram for gender
+female <-hist(data_wave_85$female, prob=T,
+main="Frequency distribution of Men & Women",
+ylab="Frequency of The Gender",
+xlab="0=male, 1=female",
+col="grey") 
+
+#The gender histogram for the second waves shows the sample is made up of more men than women just like what was observed when both waves were grouped
+
+#histogram for work experience
+exper <-hist(data_wave_85$exper, prob=T,
+main="Frequency distribution of Work Experience",
+ylab="Frequency of Work Experience",
+xlab="Exper",
+col="grey") 
+
+#the histogram for experience in the second wave demonstrates a similar trend to that seen when both waves were grouped.  
+
+
+
+#histogram for work experience squared
+exper <-hist(data_wave_85$expersq, prob=T,
+main="Frequency distribution of Work Experience Squared",
+ylab="Frequency of Work Experience Squared",
+xlab="Expersq",
+col="grey") 
+
+
+#histogram for south
+l_wage<-hist(data_wave_85$south, prob=T,
+main="Frequency distribution of Location",
+ylab="Frequency of Location",
+xlab="0= North, 1 = South",
+col="grey")  
+
+#histogram for race
+l_wage<-hist(data_wave_85$nonwhite, prob=T,
+main="Frequency distribution of Race",
+ylab="Frequency of Race",
+xlab="0= white, 1 = nonwhite",
+col="grey")  
+
+#histogram for Marriage
+l_wage<-hist(data_wave_85$married, prob=T,
+main="Frequency distribution of Marriage",
+ylab="Frequency of Marriage",
+xlab="0= not_married, 1 = married",
+col="grey")  
+
+#histogram for union
+l_wage<-hist(data_wave_85$union, prob=T,
+main="Frequency distribution of Union Membership",
+ylab="Frequency of Union Membership",
+xlab="0= not in a union, 1 = in a union",
+col="grey")  
+
+ggplot(data=data_wave_85,aes(x=educ,y=lwage)) + geom_point( colour = 'red', alpha = 0.5) +
+theme_minimal() + labs(x="Education",y="Wages (log)") +
+geom_smooth(method='lm', formula= y~x) #potential nonlinearity???
+
+
+ggplot(data=data_wave_85,aes(x=exper,y=lwage)) + geom_point() +
+theme_minimal() + labs(x="Exper",y="Wages (log)") +
+geom_smooth(method='lm', formula= y~x) #potential nonlinearity???
+
+
+
+ggplot(data=data_wave_85,aes(x=female,y=lwage)) + geom_point() +
+theme_minimal() + labs(x="Gender",y="Wages (log)") +
+geom_smooth(method='lm', formula= y~x) #potential nonlinearity???
+
+#The scatterplots to show the relationship between education, experience and gender with lwage depicts the same relationship that was observed when both waves were grouped together. Education and experience have positive effects on wages and men make more money than women. 
+
+
+# Plotting output of (density)
+den.lwage.85 <- density(data_wave_85$lwage)
+den.lwage.85
+plot(den.lwage.85, main = 'Density plot of wage (log)')
+
+ 
+
+
+```
+\newpage
+#QUESTION TWO: 
+\par
+
+
+You can use `table1` to make pretty descriptive tables for all the variables in the `wages`  dataset
+
+\pagebreak
+
+```{r summary stats, message=FALSE, warning=FALSE, comment=NA}
+
+#gender
+table(wages$female)
+summary(wages$female)
+#library(dplyr)
+#wages <- wages %>% mutate(female = ifelse(wages$female==1 , 'female', 'male'))
+table(wages$female)
+wages$Gender <- factor(wages$female, levels=c(1,0),
+         labels=c("female", 
+                  "male"))
+
+
+
+#residence
+table(wages$south)
+summary(wages$south)
+#wages <- wages %>% mutate(south = ifelse(wages$south==1 , 'south', 'north'))
+table(wages$south)
+wages$Residence <- factor(wages$south, levels=c(1,0),
+         labels=c("south", 
+                  "north"))
+
+
+#race
+table(wages$nonwhite)
+summary(wages$nonwhite)
+#wages <- wages %>% mutate(nonwhite = ifelse(wages$nonwhite==1 , 'nonwhite', 'white'))
+table(wages$nonwhite)
+wages$Race <- factor(wages$nonwhite, levels=c(1,0),
+         labels=c("nonwhite", 
+                  "white"))
+
+#marital status
+table(wages$married)
+summary(wages$married)
+#wages <- wages %>% mutate(married = ifelse(wages$married==1 , 'married', 'single'))
+table(wages$married)
+
+wages$Marital_status <- factor(wages$married, levels=c(1,0),
+         labels=c("married", 
+                  "single"))
+
+
+#union affiliation
+table(wages$union)
+summary(wages$union)
+#wages <- wages %>% mutate(union = ifelse(wages$union==1 , 'unionized', 'non_unionized'))
+table(wages$union)
+wages$Union_affiliation <- factor(wages$union, levels=c(1,0),
+         labels=c("unionized", 
+                  "non_unionized"))
+
+
+#waves
+table(wages$y85)
+summary(wages$y85)
+wages <- wages %>% mutate(y85 = ifelse(wages$y85==1, 'wave_2', 'wave_1'))
+table(wages$y85)
+
+
+caption  <- "Summary statistics"
+units(wages$age)       <- "years"
+footnote <- "??? Number of years of working"
+
+label(wages$educ)       <- "Education"
+label(wages$exper)       <- "Work Experience???"
+label(wages$expersq)       <- "Work Experience squared"
+label(wages$lwage)       <- "Wages (log)"
+label(wages$age)       <- "Age (years)"
+
+
+
+table1(~ Gender +  Residence + Race + Marital_status + Union_affiliation + educ + exper + expersq + lwage +age + factor(y85fem) + y85educ + factor(y85union) | y85, data=wages, overall=c(left="Total"), caption=caption, footnote=footnote)
+
+
+
+
+```
+
+
+You are asked to fit a linear regression model to measure the effect of education on the log earnings while adjusting for experience and gender. In particular, you are asked to fit :
+1. a pooled model that ignores the wave effect (1978 vs 1985)
+2. separate models for each wave
+
+
+Hint 1: consider using interaction variables
+Hint 2: datasets in R have a helpful help file (`?cps78_85`)
+
+\newpage
+#QUESTION THREE: 
+\par
+
+A) What do you notice on the effect of education? Can you fit a model that quantifies the change on the education effect? similarly can you estimate (in the same model) the change in the gender wage gap?
+try interpreting the results of each model \par
+
+As depicted in the regression models, the effect of education on wages is positive, with higher education leading to higher wages. This was observed in all 3 regressions, with the regression coefficient in the pooled model being 0.093, the regression coefficient in the 1978 model being 0.078 and the regression coefficient in the 1985 model being 0.098. \par
+With the pooled regression, a one year increase in education increases wages by 9.3%.\par
+With the 1978 regression, a one year increase in education increases wages by 7.8%.\par
+With the 1985 regression, a one year increase in education increases wages by 9.8%.\par
+The results show that the effect of education on wages increased from 1978 to 1985. \par
+With respect to the change in the gender wage gap, it appears that between 1978 and 1985, the gender wage gap decreased. The results showed that in 1978 the regression coefficient was a larger negative value than in 1985 ((???0.336 in 1978 versus ???0.256 in 1985). 
+
+B) Interactions \par 
+
+
+When the regression models were conducted again with the education variable and female variable interacting, further insight was gained. 
+Being a female, a one year increase in education increased wages by 1.9% and 3.4% in the pooled regression and the 1985 regression, respectively. The 1978 regression was insignificant (0.002). \par
+For all the models, education when interacted with being female led to the effect of education on wages reducing. In the pooled model, the results remained significant however the regression coefficient for the interacted variables was 0.019. Compared to education alone which had a regression coefficient of 0.087, it can be seen that by being a women, education has a much weaker effect on the wages they earn. In 1978, the education regression coefficient of 0.79 dropped to a non significant -0.002 which shows that for women education had little to no effect on their wages in 1978. In 1985 the education regression coefficient dropped from 0.085 to 0.034 which again shows education has less of an effect in increasing the age of females however it does show that compared to 1978 there has been progress in the effect of education on women's wages. 
+\pagebreak
+
+```{r}
+#pooled effect
+#View(wages)
+fit_pooled <- plm(lwage ~ educ+exper+female, data = wages,index = c("south", "y85"), model = "pooling")
+summary(fit_pooled)
+
+pooled_reg <- msummary(list("pooled" = fit_pooled), stars=c('*' = .1, '**' = .05, '***' = .01))
+pooled_reg
+
+
+#separate models for each wave
+#1978
+lwage_1978 <- subset(wages,year == 78) 
+
+fit_lm1978 <- lm(lwage ~ educ+exper+female, data = lwage_1978)
+summary(fit_lm1978)
+
+wave1_reg <-msummary(list("1978" = fit_lm1978), stars=c('*' = .1, '**' = .05, '***' = .01))
+wave1_reg
+
+
+#1985
+lwage_1985 <- subset(wages,year == 85) 
+
+fit_lm1985 <- lm(lwage ~ educ+exper+female, data = lwage_1985)
+summary(fit_lm1985)
+
+wave2_reg <-msummary(list("1985" = fit_lm1985), stars=c('*' = .1, '**' = .05, '***' = .01))
+wave2_reg 
+
+all_regressions <- msummary(list("pooled" = fit_pooled, "1978" = fit_lm1978, "1985" = fit_lm1985), stars=c('*' = .1, '**' = .05, '***' = .01))
+all_regressions
+
+
+
+#Examining the effect of what happens when the variables interact: 
+
+fit_pooled2 <- plm(lwage ~ educ+exper+female+educ:female, data = wages,index = c("south", "y85"), model = "pooling")
+fit_lm1978_2 <- lm(lwage ~ educ+exper+female+educ:female, data = lwage_1978)
+fit_lm1985_2 <- lm(lwage ~ educ+exper+female+educ:female, data = lwage_1985)
+
+all_regressions2 <- msummary(list("pooled2" = fit_pooled2, "1978" = fit_lm1978_2, "1985" = fit_lm1985_2), stars=c('*' = .1, '**' = .05, '***' = .01))
+all_regressions2
+
+
+
+  
+```
+
+You have estimated above that indeed education has a positive effect on earnings and that the same years of education would yield higher earnings in 1985 compared to 1978. Next, we would like to estimate how education has affected this change in earnings longitudinally. 
+
+We load a dataset that comes from the National Longitudinal Survey
+and comprise a sample of full-time working males who have completed their
+schooling by 1980 and then followed over the period 1980 to 1987 (8 times).
+
+```{r}
+#load the data. by default the function below creates a dataset `wagepan`
+data(wagepan)
+
+
+
+```
+\newpage
+#QUESTION FOUR: 
+\par
+Similar to above, you are asked to observe the data well, through data summaries, histograms and  scatterplots of your choice. All these can help you understand the relation between the covariates. Particular focus should be given in the relation between log wages and time as well as education and log wages . Create a table 1 using the `tableone` or `table1` R packages 
+
+```{r}
+# your turn - summarize the data 
+?wagepan
+str(wagepan)
+head(wagepan)
+table(wagepan$lwage)
+
+#summary
+summary(wagepan)
+unique(wagepan)
+
+#histogram for lwages in wagepan 
+l_wage_wagepan <-hist(wagepan$lwage, prob=T,
+main="Frequency distribution of Wages (log)",
+ylab="Frequency of Wages (log)",
+xlab="Wages (log)",
+col="grey") 
+
+#the distribution of lwages is approximately normal
+
+
+
+#histogram for exper in wagepan
+exper_wagepan <-hist(wagepan$exper, prob=T,
+main="Frequency distribution of Exper",
+ylab="Frequency of Exper",
+xlab="Exper",
+col="grey") 
+
+#the distribution of work experience is right skewed with most individuals working within the 5 to 10 year range
+
+#histogram for hours worked in wagepan
+hours_wagepan <-hist(wagepan$hours, prob=T,
+main="Frequency distribution of hours worked",
+ylab="Frequency of hours worked",
+xlab="hours worked",
+col="grey") 
+
+#the histogram of hours worked is approximately normal with a large peak around 2000 to 2500 hours worked
+
+#histogram for educ in wagepan
+educ_wagepan <-hist(wagepan$exper, prob=T,
+main="Frequency distribution of Years of schooling",
+ylab="Frequency of years of schooling",
+xlab="years of schooling",
+col="grey") 
+
+#the distribution of years of schooling is right skewed with most individuals having between 5 and 10 years of school 
+
+
+#histogram for agric in wagepan
+agric_wagepan <-hist(wagepan$agric, prob=T,
+main="Frequency distribution of Being in Agriculture or Not",
+ylab="Frequency of Being in Agriculture or Not",
+xlab="0 = not-agriculture, 1 = in Agriculture",
+col="grey") 
+
+#histogram for being black or not in wagepan
+agric_wagepan <-hist(wagepan$black, prob=T,
+main="Frequency distribution of Being  Black or Not",
+ylab="Frequency of Being Black or Not",
+xlab="0 = not-black, 1 = black",
+col="grey") 
+
+#histogram for being in construction in wagepan
+agric_wagepan <-hist(wagepan$construc, prob=T,
+main="Frequency distribution of Being in Construction or Not",
+ylab="Frequency of Being in Construction or Not",
+xlab="0 = not-in-construction, 1 = in construction",
+col="grey") 
+
+#histogram for being hispanic in wagepan
+agric_wagepan <-hist(wagepan$hisp, prob=T,
+main="Frequency distribution of Being Hispanic or Not",
+ylab="Frequency of Being Hispanic or Not",
+xlab="0 = not-hispanic, 1 = hispanic",
+col="grey") 
+
+#histogram for being in poor health in wagepan
+agric_wagepan <-hist(wagepan$poorhlth, prob=T,
+main="Frequency distribution of Being in Poor Health or Not",
+ylab="Frequency of Being in Poor Health or Not",
+xlab="0 = not-in-poorhealth, 1 = in poor health",
+col="grey") 
+
+#histogram for being in manufacturing in wagepan
+agric_wagepan <-hist(wagepan$manuf, prob=T,
+main="Frequency distribution of Being in Manufacturing or Not",
+ylab="Frequency of Being in Manufacturing or Not",
+xlab="0 = not-in-manufacturing, 1 = in manufacturing",
+col="grey") 
+
+#histogram for being married in wagepan
+agric_wagepan <-hist(wagepan$married, prob=T,
+main="Frequency distribution of Being Married or Not",
+ylab="Frequency of Being Married or Not",
+xlab="0 = not-married, 1 = married",
+col="grey") 
+
+#histogram for being in north central or not in wagepan
+agric_wagepan <-hist(wagepan$nrthcen, prob=T,
+main="Frequency distribution of Being in North Central or Not",
+ylab="Frequency of Being in North Central or Not",
+xlab="0 = not-in-north central, 1 = in north central",
+col="grey") 
+
+#histogram for being in north east or not in wagepan
+agric_wagepan <-hist(wagepan$nrtheast, prob=T,
+main="Frequency distribution of Being in North East or Not",
+ylab="Frequency of Being in North East or Not",
+xlab="0 = not-in-north east, 1 = in north east",
+col="grey") 
+
+#histogram for being in the south or not in wagepan
+agric_wagepan <-hist(wagepan$south, prob=T,
+main="Frequency distribution of Being in the South or Not",
+ylab="Frequency of Being in the South or Not",
+xlab="0 = not-in-south, 1 = in south",
+col="grey") 
+
+#histogram for being in a union or not in wagepan
+agric_wagepan <-hist(wagepan$union, prob=T,
+main="Frequency distribution of Being in a Union or Not",
+ylab="Frequency of Being in a Union or Not",
+xlab="0 = not-in-a-union, 1 = in a union",
+col="grey") 
+
+
+#scatterplot showing the relationship between the year and the wages 
+
+ggplot(data=wagepan,aes(x=year,y=lwage)) + geom_point( colour = 'red', alpha = 0.5) +
+theme_minimal() + labs(x="Year",y="Wages (log)") +
+geom_smooth(method='lm', formula= y~x) 
+
+#the trend shows that overtime, wages increase.
+
+
+#scatterplot showing the relationship between the years of schooling and  wages 
+
+ggplot(data=wagepan,aes(x=educ,y=lwage)) + geom_point( colour = 'red', alpha = 0.5) +
+theme_minimal() + labs(x="years of schooling",y="Wages (log)") +
+geom_smooth(method='lm', formula= y~x) 
+
+#the trend shows that as the number of years of schooling increase, the wages increase as well indicating a positive association.
+
+
+#scatterplot showing the relationship between the annual hours worked and the wages 
+
+ggplot(data=wagepan,aes(x=hours,y=lwage)) + geom_point( colour = 'red', alpha = 0.5) +
+theme_minimal() + labs(x="Hours worked",y="Wages (log)") +
+geom_smooth(method='lm', formula= y~x) 
+
+#the trend shows there is no (or little) relationship between hours worked and an individuals wages.
+
+
+
+#scatterplot showing the relationship between labour market experience and the wages 
+
+ggplot(data=wagepan,aes(x=exper,y=lwage)) + geom_point( colour = 'red', alpha = 0.5) +
+theme_minimal() + labs(x="labour market experience",y="Wages (log)") +
+geom_smooth(method='lm', formula= y~x) 
+
+#the trend shows that as the years of labour market experience increases, the wages increases.
+
+
+#agriculture
+table(wagepan$agric)
+summary(wagepan$agric)
+table(wagepan$agric)
+wagepan$Agriculture <- factor(wagepan$agric, levels=c(1,0),
+         labels=c("agriculture", 
+                  "not_agriculture"))
+
+
+#race
+table(wagepan$black)
+summary(wagepan$black)
+table(wagepan$black)
+wagepan$Black <- factor(wagepan$black, levels=c(1,0),
+         labels=c("black", 
+                  "not_black"))
+#construction
+table(wagepan$construc)
+summary(wagepan$construc)
+table(wagepan$construc)
+wagepan$Construction <- factor(wagepan$construc, levels=c(1,0),
+         labels=c("construction", 
+                  "not_construction"))
+
+#hispanic
+table(wagepan$hisp)
+summary(wagepan$hisp)
+table(wagepan$hisp)
+wagepan$Hispanic <- factor(wagepan$hisp, levels=c(1,0),
+         labels=c("Hispanic", 
+                  "non_hispanic"))
+
+
+#Health_status
+table(wagepan$poorhlth)
+summary(wagepan$poorhlth)
+table(wagepan$poorhlth)
+wagepan$Health_status <- factor(wagepan$poorhlth, levels=c(1,0),
+         labels=c("poor_health", 
+                  "good_health"))
+
+
+
+#manufacturing
+table(wagepan$manuf)
+summary(wagepan$manuf)
+table(wagepan$manuf)
+wagepan$Manufacturing <- factor(wagepan$manuf, levels=c(1,0),
+         labels=c("manufacturing", 
+                  "not_manufacturing"))
+
+
+#married
+table(wagepan$married)
+summary(wagepan$married)
+table(wagepan$married)
+wagepan$Marital_status <- factor(wagepan$married, levels=c(1,0),
+         labels=c("married", 
+                  "not_married"))
+
+
+
+#north_central
+table(wagepan$nrthcen)
+summary(wagepan$nrthcen)
+table(wagepan$nrthcen)
+wagepan$North_central <- factor(wagepan$nrthcen, levels=c(1,0),
+         labels=c("north_central", 
+                  "not_nrth_cent"))
+
+
+
+
+#north_east
+table(wagepan$nrtheast)
+summary(wagepan$nrtheast)
+table(wagepan$nrtheast)
+wagepan$North_east <- factor(wagepan$nrtheast, levels=c(1,0),
+         labels=c("north_east", 
+                  "not_nrth_east"))
+
+
+
+
+#south
+table(wagepan$south)
+summary(wagepan$south)
+table(wagepan$south)
+wagepan$South <- factor(wagepan$south, levels=c(1,0),
+         labels=c("south", 
+                  "north"))
+
+
+#union_affiliatn
+table(wagepan$union)
+summary(wagepan$union)
+table(wagepan$union)
+wagepan$Union_affiliatn <- factor(wagepan$union, levels=c(1,0),
+         labels=c("unionized", 
+                  "non_unionized"))
+
+caption  <- "The Summary statistics"
+
+label(wagepan$educ)       <- "Education (years)"
+label(wagepan$exper)       <- "Work Experience"
+label(wagepan$expersq)       <- "Work Experience squared"
+label(wagepan$lwage)       <- "Wages (log)"
+label(wagepan$hours)       <- "Annual hours worked"
+
+table1(~ Agriculture+Black+Construction+Hispanic+Health_status+Manufacturing+Marital_status+North_central+North_east+South+Union_affiliatn + exper+hours+educ+lwage+expersq| year, data=wagepan, overall=c(left="Total"), caption=caption)
+
+############################################################################
+
+
+```
+\newpage
+#QUESTION FIVE: 
+\par
+You are asked to understand the interaction of time with education on earnings. How did the effect of education on earnings change over time? There are other covariates that are likely to also affect earnings (e.g. race, marriage, belonging to a union) that you would need to adjust for. 
+One possible place you could start is by calculating an  effect that ignores any correlation (or a pooled effect) and fixed effect models. Alternatively you can fit a  random effect model where a random intercept is introduced on the individual level. 
+
+Hint1: you can do the same thing in many ways in R. Remember to  use `plm` over `lme4` for more "standard" econometric random effect models where no assumption on the distribution is made.
+
+Hint2 :`plm` works similarly to `lm` but 1) you need to let R know what is the index variable and 2) what kind of model you will be estimating
+
+\par
+Over time, the effect of education on earnings increase for  the pooled model, the fixed effect model and the random effects model. Thus, a year increase in education increases earnings (i.e., log of wages).
+
+\par
+
+
+
+
+```{r}
+#View(wagepan)
+?wagepan
+#recode year using Numbers from 1980=0, 1981=1, 1982=3,...1987=8
+
+#interacting time and education 
+
+#pooled effect
+#View(wages)
+fit_pooled_3 <- plm(lwage ~ educ+ year:educ+black+married+union+year, data = wagepan,index = c("nr", "year"), model = "pooling")
+summary(fit_pooled_3)  #factor (year)
+
+#fixed effect
+
+#first difference
+fit_fd <-  plm(lwage ~ educ+ year:educ+black+married+union+year, data = wagepan,index = c("nr", "year"), model = "fd")
+summary(fit_fd)
+
+#demean
+fit_demean <-  plm(lwage ~ educ+ year:educ+black+married+union+year, data = wagepan,index = c("nr", "year"), model = "within")
+summary(fit_demean)
+
+#random effect model
+fit_random <- plm(lwage ~ educ+ year:educ+black+married+union+year, data = wagepan,index = c("nr", "year"), model = "random")
+summary(fit_random)
+
+
+fit_summary <-msummary(list("fit_pooled" = fit_pooled_3, "fit_random" = fit_random, "fit_fd" = fit_fd, "fit_demean" = fit_demean), stars=c('*' = .1, '**' = .05, '***' = .01))
+
+fit_summary 
+
+#We can extract the fixed effects from a "demeaned" fitted model 
+
+state_fe <- fixef(fit_demean, type = "dmean")
+summary(state_fe)
+hist(state_fe)
+
+
+
+```
+
+
+\newpage
+#QUESTION FIVE: 
+\par
+
+Please interpret the pooled fixed and random effect models with respect to the effect of education and how this changed over the years. Please test some of the basic assumptions of a linear (random effects) regression including normality of residuals (and normality of random effects if possible), heteroskedasticity etc
+
+
+#################################################################
+#ANSWER
+
+
+
+
+
+#how do our results in the pooled, fixed model differ from the random effects model 
+In the pooled model, education was found to have a significant and positive relationship with wages. The results showed that if there was a one year increase in the years of education, the wages would increase by 6.0%. The effects gradually increased between 1981 to 1987. However, the effect only had a significant difference in 1987 (wage increased by 2.8%).
+
+Similarly, in the random effect model, education had a significant and positive association with wages. A one year increase in the years of education increased the wage by 5.9%, and the effects increased over time. Unlike the pooled model, the effects had significant differences in 1985,1986 and 1987 (wage increased by 2.3%, 2.6% and 2.8% respectively).
+
+Because the random effect model requires more assumptions, the standard errors are smaller for the interaction term (educ:year) in comparison to the pooled model. In the random effect model, the individual level effect are spread randomly across the sample participants and are uncorrelated with the independent variables. This model has more flexibility because it allows for the individual effect to vary across the individuals and the time. 
+
+In the fixed effect model, we control for the time invariant individual effects. This model assumed that individual effects were constant across time and the effect of the individual variables were the same for all the individuals in the sample. 
+
+In the fixed-effect model, education and race were omitted because they are time-invariant over the time periods. The results of the interaction term in the fixed effect model were similar to the random effect model. The effects only had significant differences in the years of 1985, 1986 and 1987 (wages increased by 2.4%,2.7% and 3.0% respectively).
+
+This fixed effect model differs from the random effect model because the individual effects are considered constant across the sample while in the random effect model the individual effects are randomly distributed across the sample and vary across individuals and over time. What this means for the regression coefficients is that, in the fixed effect model, the coefficients are assumed to be constant over time, and in the random effects model, the coefficients can vary over time.
+
+
+```{r}
+#summary of the effects of the pooled fixed and random effect models
+
+refe_summary <-msummary(list("fit_pooled" = fit_pooled_3, "fit_random" = fit_random, "fit_demean" = fit_demean), stars=c('*' = .1, '**' = .05, '***' = .01))
+refe_summary
+
+#For the random effectsmodel we can use a Hausman test to compare the estimates of the random efficts model with the fixed effects model:
+
+phtest(fit_pooled_3, fit_random)  #Hausman test
+
+#The null hypothesis of Hausman Test is that the preferred model is random effects, and the alternative hypothesis is that the model is fixed effects. Since the p-value is less than 0.05, we can reject null hypothesis. For this analysis, the p-value is less than 0.05, so the fixed effect model is preferred.
+
+
+pwtest(fit_pooled_3) # Wooldridge's test for unobserved individual effects
+pbsytest(fit_pooled_3) #Bera, Sosa-Escudero and Yoon locally robust test
+
+
+
+#Testing for time-fixed effects
+#Lagrange Multiplier Test - time effects	(Breusch-Pagan)
+
+plmtest(fit_demean, c("time"), type=("bp")) 
+
+
+#The p-value is less than 0.05 which depicts that we ought to use the time effect in the models.
+ 
+
+#Breusch-Pagan Lagrange Multiplier for random effects. Null is no panel effect (i.e. OLS better)
+plmtest(fit_pooled_3, type=c("bp"))
+ 
+#Here we reject the null since the p-value is less than 0.05 and conclude that random effects is appropriate relative to a simple OLS regression. Thus, there is evidence of significant differences across individuals.
+ 
+ 
+
+#fixed effect
+#Testing for cross-sectional dependence/contemporaneous correlation: using Breusch-Pagan LM test of independence and Pasaran CD test
+
+#Breusch-Pagan LM test for cross-sectional dependence in panels
+pcdtest(fit_demean, test = c("lm"))
+
+#Pesaran CD test for cross-sectional dependence in panels
+pcdtest(fit_demean, test = c("cd"))
+
+#Since their p-values are less than 0.05, there is evidence of cross-sectional dependence
+
+
+
+#Testing for serial correlation
+#Breusch-Godfrey/Wooldridge test for serial	correlation in panel models
+pbgtest(fit_demean)
+
+#There is evidence of serial correlation as the p-value is less than 0.05
+
+
+
+
+#Testing for heteroskedasticity using Breusch-Pagan test
+#install.packages("lmtest") 
+library(lmtest)
+
+bptest(lwage ~ educ+ year:educ+black+married+union+ factor(nr), data = wagepan, studentize=F)
+
+
+#Testing for unit roots/stationarity using Augmented Dickey-Fuller Test
+
+Panel.set <- plm.data(wagepan, index = c("nr", "year"))
+install.packages("tseries")
+library(tseries)
+adf.test(Panel.set$lwage, k=2)
+
+#P-value is less than 0.05 hence there is no unit roots
+
+
+
+#For the random effects regression to check if the error term is normally distributed and homoscedastic can run a Breusc-Pagan test for heteroskedasticity. 
+
+bptest(fit_pooled_3)
+bptest(fit_random)
+bptest(fit_demean)
+
+#Since the p-value is less than 0.05, we have sufficient evidence to say that heteroscedasticity is present in the pooled model, the fixed effect model and the random effect regression model.  
+  
+  
+#Normality Test of the residuals
+
+shapiro.test(fit_pooled_3$residuals)
+
+#the pvalue for the residuals is less than 0.05 which indicates that the residuals for the pooled model are not normally distributed.
+
+shapiro.test(fit_random$residuals)
+
+#the pvalue for the residuals is less than 0.05 which indicates that the residuals for the random effects model are not normally distributed.
+
+shapiro.test(fit_demean$residuals)
+#the pvalue for the residuals is less than 0.05 which indicates that the residuals for the demeaned  model are not normally distributed.
+
+
+
+
+
+
+```
+
+Does  model performance improve when you assume year to be a continuous variable as opposed to a categorical? Please explain, interpret the effect of year in both cases and provide the code to estimate the effect of year as a continuous variable. 
+\par
+
+Answer: The model performance does not improve when year is assumed to be a continuous variable rather than a categorical variable. When year is made continuous the regression coefficient for education interacting with year is much smaller than that seen when year is categorical. Year as a categorical variable provides more information on the effect of education between years than when year is continuous. \par
+
+When year is treated as a categorical variable, the model is able to calculate the effect of education in each individual year. There is value with understanding the effect of education from year to year because it demonstrates how the effect of education changes over time and whether the relationship gets stronger or weaker. When year is treated as a continuous variable, the effect of all the years are grouped and only one coefficient is provided. When year is continuous, it treats the expected difference between the years 1980 and 1981 as the same as the expected difference between 1986 and 1987. As many things can change between years, it is not likely that these effects between years are the same. As such, information is lost when making the year continuous. This is observed within all 3, pooled, fixed, and random effect models below. \par
+
+For the pooled model, when year is categorical, the model provides a regression coefficient for education interacting with year. From 1981 to 1987 the interaction regression coefficients are: 0.010, 0.013, 0.016, 0.016, 0.020, 0.024, 0.028. However, when year is continuous, only one regression coefficient is provided as education interacts with year in a continuous form. The regression coefficient is 0.0034. 
+
+When the regression coefficient from the  pooled model with year as continuous is compared to the regression coefficients from when year was categorical, we can see that it does not explain education's impact between years. In the model with the year as a categorical variable, we can see that the effect of education increased between years. However, with the model that had year as a continuous variable, the effect of education interacting with year is very small and underestimates the impact of education on the log of wages. 
+
+The same trend was observed within the random effect and fixed effect models when the year was made continuous. 
+
+#Add the numerical evidence for the regression coefficients
+
+
+```{r}
+
+#######################################################
+#######################################################
+
+wagepan$year_fac<-as.factor(wagepan$year)
+wagepan$year_num<-as.numeric(wagepan$year)
+
+fit_pooled_categorical <- plm(lwage ~ educ+ year_fac:educ+black+married+union+year_fac, data = wagepan,index = c("nr", "year"), model = "pooling")
+
+fit_pooled_categorical
+summary(fit_pooled_categorical)
+
+fit_pooled_continuous <- plm(lwage ~ educ+ year_num:educ+black+married+union+year_num, data = wagepan,index = c("nr", "year"), model = "pooling")
+
+fit_pooled_continuous
+summary(fit_pooled_continuous)
+
+#############
+
+fit_random_categorical <-plm(lwage ~ educ+ year_fac:educ+black+married+union+year_fac, data = wagepan,index = c("nr", "year"), model = "random")
+fit_random_categorical
+summary(fit_random_categorical)
+
+
+
+fit_random_continuous<-plm(lwage ~ educ+ year_num:educ+black+married+union+year_num, data = wagepan,index = c("nr", "year"), model = "random")
+fit_random_continuous
+summary(fit_random_continuous)
+
+###############
+
+fit_demean_categorical <-plm(lwage ~ educ+ year_fac:educ+black+married+union+year_fac, data = wagepan,index = c("nr", "year"), model = "within")
+fit_demean_categorical
+summary(fit_demean_categorical)
+
+
+
+fit_demean_continuous<-plm(lwage ~ educ+ year_num:educ+black+married+union+year_num, data = wagepan,index = c("nr", "year"), model = "within")
+fit_demean_continuous
+summary(fit_demean_continuous)
+
+
+#######################################################
+#######################################################
+
+```
+ 
+
+
+
+## Package Citations
+```{r, include=FALSE}
+print("=============================Works Cited=============================")
+loadedNamespaces() %>%
+map(citation) %>%
+print(style = "text") # Adds citations for each package to end of .rmd file
+
+knitr::write_bib(file = 'packages.bib') # Constructs a citation file for all packages used in this lecture.
+
+
+```
+
