@@ -1,0 +1,211 @@
+---
+title: "final_analysis"
+output: html_document
+date: '2023-03-11'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+
+```{r cars}
+library(tidyverse)
+library(MatchIt)
+library(modelsummary)
+library(plm)
+```
+
+```{r}
+df <- read.csv("nhanes_mortality.csv")
+
+df <- df %>% drop_na(Gender)
+df <- replace(df, is.na(df), 0) #replace all NAs with zero
+sum(is.na(df))  #0
+
+view(df)
+str(df)
+head(df)
+df <- df %>% mutate(Gender = ifelse(Gender =="female", 1, 0))
+df <- df %>% mutate(Have_insurance = ifelse(Have_insurance =="Yes", 1, 0))
+
+df$Marriage<-as.factor(df$Marriage)
+df$Education <- as.factor(df$Education)
+df$Familty_Poverty_income_ratio <- as.factor(df$Familty_Poverty_income_ratio)
+df$Ethnicity <- as.factor(df$Ethnicity)
+
+df$BMI_category<-as.factor(df$BMI_category)
+df$alcohol<-as.factor(df$alcohol)
+df$smoke <- as.factor(df$smoke)
+df$physical_activity <- as.factor(df$physical_activity)
+df$CVD <- as.factor(df$CVD)
+df$smoke <- as.factor(df$smoke)
+df$year <- as.factor(df$Year)
+df$Cancer <- as.factor(df$Cancer)
+df$mortstat <- as.factor(df$mortstat)
+df$diabetes.y <- as.factor(df$diabetes.y)
+
+sum(is.na(df))  #0
+
+
+table(df$Ethnicity)
+
+class(df$diabetes.y)
+
+#view(df)
+
+df2007 <- df %>% filter(year == 2007) #%>% filter(Age %in% (50:54))
+df2009 <- df %>% filter(year == 2009) #%>% filter(Age %in% (52:56))
+df2011 <- df %>% filter(year == 2011) #%>% filter(Age %in% (54:58))
+df2013 <- df %>% filter(year == 2013) #%>% filter(Age %in% (56:60))
+df2015 <- df %>% filter(year == 2015) #%>% filter(Age %in% (58:62))
+df2017 <- df %>% filter(year == 2017) #%>% filter(Age %in% (60:64))
+
+#match within each year
+
+#analysis_match <- matchit(Have_insurance ~ Gender + Familty_Poverty_income_ratio + Age + Ethnicity +
+#                            Marriage + Education + CVD + Cancer + alcohol + smoke + physical_activity + BMI_category,
+#                            data = df,
+#                            method = "nearest", 
+#                          weights = weights,
+#                           distance='scaled_euclidean', # metric for distance
+#                     replace=TRUE, # do we use replacements in matches?
+#                     verbose=TRUE)
+
+analysis_match_2007 <- matchit(Have_insurance ~ Gender + Familty_Poverty_income_ratio + Age + Ethnicity +
+                            Marriage + Education + CVD + Cancer + alcohol + smoke + physical_activity + BMI_category,
+                            data = df2007,
+                             method = "exact", 
+                     verbose=TRUE)
+
+analysis_match_2009 <- matchit(Have_insurance ~ Gender + Familty_Poverty_income_ratio + Age + Ethnicity +
+                            Marriage + Education + CVD + Cancer + alcohol + smoke + physical_activity + BMI_category,
+                            data = df2009,
+                             method = "exact", 
+                     verbose=TRUE)
+
+
+analysis_match_2011 <- matchit(Have_insurance ~ Gender + Familty_Poverty_income_ratio + Age + Ethnicity +
+                            Marriage + Education + CVD + Cancer + alcohol + smoke + physical_activity + BMI_category,
+                            data = df2011,
+                             method = "exact", 
+                     verbose=TRUE)
+
+
+analysis_match_2013 <- matchit(Have_insurance ~ Gender + Familty_Poverty_income_ratio + Age + Ethnicity +
+                            Marriage + Education + CVD + Cancer + alcohol + smoke + physical_activity + BMI_category,
+                            data = df2013,
+                             method = "exact", 
+                     verbose=TRUE)
+
+
+analysis_match_2015 <- matchit(Have_insurance ~ Gender + Familty_Poverty_income_ratio + Age + Ethnicity +
+                            Marriage + Education + CVD + Cancer + alcohol + smoke + physical_activity + BMI_category,
+                            data = df2015,
+                             method = "exact", 
+                     verbose=TRUE)
+
+
+analysis_match_2017 <- matchit(Have_insurance ~ Gender + Familty_Poverty_income_ratio + Age + Ethnicity +
+                            Marriage + Education + CVD + Cancer + alcohol + smoke + physical_activity + BMI_category,
+                            data = df2017,
+                            method = "exact", 
+                     verbose=TRUE)
+
+
+#summary(analysis_match)
+#analysis_match_data <-  match.data(analysis_match)
+
+summary(analysis_match_2007)
+summary(analysis_match_2009)
+summary(analysis_match_2011)
+summary(analysis_match_2013)
+summary(analysis_match_2015)
+summary(analysis_match_2017)
+
+
+analysis_match_2007_data <-  match.data(analysis_match_2007)
+analysis_match_2009_data <-  match.data(analysis_match_2009)
+analysis_match_2011_data <-  match.data(analysis_match_2011)
+analysis_match_2013_data <-  match.data(analysis_match_2013)
+analysis_match_2015_data <-  match.data(analysis_match_2015)
+analysis_match_2017_data <-  match.data(analysis_match_2017)
+
+analysis_match_data_merged<-rbind(analysis_match_2007_data,analysis_match_2009_data,analysis_match_2011_data,analysis_match_2013_data,analysis_match_2015_data,analysis_match_2017_data)
+
+view(analysis_match_data_merged)
+
+```
+
+```{r message=FALSE, warning=FALSE}
+
+
+#all_death_regression <-glm(mortstat ~ Have_insurance + Have_insurance:Age + year + Age, data=analysis_match_data_merged, family='binomial'(link='logit'), weights=weights)
+#family=quasibinomial
+#all_death_regression <-glm(mortstat ~ diabetes.x+Have_insurance + Have_insurance:Age + year + Age, data=analysis_match_data_merged, family='quasibinomial'(link='logit'), weights=weights)
+#summary(all_death_regression)
+
+class(df$year)
+
+#diabetes_death_regression <-glm(diabetes.y ~ Have_insurance + Have_insurance:Age + year + Age, data=analysis_match_data_merged, family='binomial'(link='logit'), weights=weights)
+#summary(diabetes_death_regression)
+#family=quasibinomial
+#diabetes_death_regression <-glm(diabetes.y ~ Have_insurance + Have_insurance:Age + year + Age, data=analysis_match_data_merged, family='quasibinomial'(link='logit'), weights=weights)
+
+
+#first difference models
+all_death_regression_fd <-  plm(mortstat ~ diabetes.x+Have_insurance + Have_insurance:Age + year:Have_insurance + year + Age, data = analysis_match_data_merged,index = "year", model = "fd")
+summary(all_death_regression_fd)
+
+
+diabetes_death_regression_fd <-  plm(diabetes.y ~ Have_insurance + Have_insurance:Age + year + Age, data=analysis_match_data_merged,index = c("SEQN", "year"), model = "fd")
+summary(diabetes_death_regression_fd)
+
+
+#demean models
+all_death_regression_fe <-  plm(mortstat ~ diabetes.x+Have_insurance + Have_insurance:Age + year:Have_insurance + year + Age, data = analysis_match_data_merged,index = c("SEQN", "year"), model = "within")
+summary(all_death_regression_fe)
+
+diabetes_death_regression_fe <-  plm(diabetes.y ~ Have_insurance + Have_insurance:Age + year + Age, data=analysis_match_data_merged,index = c("SEQN", "year"), model = "within")
+summary(diabetes_death_regression_fe)
+
+
+
+
+
+
+
+msummary(list("all_death_fd"=all_death_regression_fd, "diabetes_death_fd" = diabetes_death_regression_fd,"all_death_fe"=all_death_regression_fe, "diabetes_death_fe" = diabetes_death_regression_fe),
+         stars=c('*' = .1, '**' = .05, '***' = .01))
+
+```
+
+### use fixef
+### should we use fixed effect or first difference
+### what regression model - glm or plm?
+### exact matching or nearest matching - ask petros
+### matching by year - should we just seperate the waves within the dataset ; done and confirm wiht petros
+### quasibinomial vs binomial for the glm regression; ask petros/look up
+### private vs no insurance, public vs no insurance - Guan
+### match private vs no, match public vs no
+### diagnostic test and assumption test
+### look at interval censoring
+
+```{r}
+#Interval sensoring
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
